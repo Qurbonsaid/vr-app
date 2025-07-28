@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { createXRStore, XR } from "@react-three/xr";
 import * as THREE from "three";
+import "./App.css";
 
 function LockedVideo({ video }: { video: HTMLVideoElement }) {
   const texture = useMemo(() => new THREE.VideoTexture(video), [video]);
@@ -31,10 +32,12 @@ function LockedVideo({ video }: { video: HTMLVideoElement }) {
 
 function App() {
   const store = createXRStore({ emulate: true });
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string>("./video.mp4");
 
   const video = useMemo(() => {
     const v = document.createElement("video");
-    v.src = "./video.mp4";
+    v.src = videoUrl;
     v.crossOrigin = "anonymous";
     v.muted = true;
     v.autoplay = true;
@@ -42,31 +45,91 @@ function App() {
     v.playsInline = true;
     v.load();
     return v;
-  }, []);
+  }, [videoUrl]);
 
   useEffect(() => {
     video.play().catch(console.warn);
   }, [video]);
 
+  useEffect(() => {
+    if (selectedVideoFile) {
+      const url = URL.createObjectURL(selectedVideoFile);
+      setVideoUrl(url);
+
+      // Cleanup URL when component unmounts or file changes
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    }
+  }, [selectedVideoFile]);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith("video/")) {
+      setSelectedVideoFile(file);
+    }
+  };
+
   return (
     <>
       <div
         style={{
-          position: "fixed",
-          width: "100%",
-          height: "100%",
-          background: "black",
-          userSelect: "none",
-          color: "white",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          fontSize: "24px",
-          zIndex: 9999,
+          gap: "15px",
         }}
-        onClick={() => store.enterVR()}
       >
-        Tap to Enter VR
+        <h2 style={{ margin: 0, fontSize: "28px" }}>VR Video Player</h2>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "10px",
+          }}
+        >
+          <label
+            htmlFor="video-upload"
+            style={{
+              cursor: "pointer",
+              padding: "10px 20px",
+              background: "#333",
+              borderRadius: "5px",
+              border: "2px solid #555",
+              fontSize: "16px",
+            }}
+          >
+            Choose Video File
+          </label>
+          <input
+            id="video-upload"
+            type="file"
+            accept="video/*"
+            onChange={handleFileChange}
+            style={{ display: "none" }}
+          />
+          {selectedVideoFile && (
+            <p style={{ margin: 0, fontSize: "14px", color: "#ccc" }}>
+              Selected: {selectedVideoFile.name}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={() => store.enterVR()}
+          style={{
+            cursor: "pointer",
+            padding: "15px 30px",
+            background: "#007ACC",
+            color: "white",
+            border: "none",
+            borderRadius: "5px",
+            fontSize: "18px",
+            marginTop: "10px",
+          }}
+        >
+          Enter VR
+        </button>
       </div>
       <Canvas>
         <XR store={store}>
